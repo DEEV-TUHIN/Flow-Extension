@@ -101,13 +101,17 @@
           </div>
           <div>
             <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">অনুমোদিত মডেল</label>
-            <select id="newModel" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
+            <select id="newModel" onchange="toggleCustomModelInput('newModel', 'newCustomModelBox')" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
               <option value="Veo Video Model">Veo Video Model</option>
               <option value="Gemini 1.5 Pro">Gemini 1.5 Pro</option>
               <option value="Gemini 1.5 Flash">Gemini 1.5 Flash</option>
               <option value="Imagen 3">Imagen 3</option>
               <option value="All Models (Full Access)">All Models (Full Access)</option>
+              <option value="custom">✍️ কাস্টম মডেল নাম লিখুন</option>
             </select>
+            <div id="newCustomModelBox" class="hidden mt-2">
+              <input type="text" id="newCustomModel" placeholder="মডেলের নাম টাইপ করুন..." class="w-full bg-slate-900 border border-sky-500 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none">
+            </div>
           </div>
           <div id="roleSelectorBox">
             <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">অ্যাকাউন্ট টাইপ (Role)</label>
@@ -190,13 +194,17 @@
           </div>
           <div>
             <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">অনুমোদিত মডেল</label>
-            <select id="editModel" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
+            <select id="editModel" onchange="toggleCustomModelInput('editModel', 'editCustomModelBox')" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
               <option value="Veo Video Model">Veo Video Model</option>
               <option value="Gemini 1.5 Pro">Gemini 1.5 Pro</option>
               <option value="Gemini 1.5 Flash">Gemini 1.5 Flash</option>
               <option value="Imagen 3">Imagen 3</option>
               <option value="All Models (Full Access)">All Models (Full Access)</option>
+              <option value="custom">✍️ কাস্টম মডেল নাম লিখুন</option>
             </select>
+            <div id="editCustomModelBox" class="hidden mt-2">
+              <input type="text" id="editCustomModel" placeholder="মডেলের নাম লিখুন..." class="w-full bg-slate-900 border border-sky-500 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none">
+            </div>
           </div>
           <div id="editRoleContainer">
             <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">রোল (Role)</label>
@@ -249,6 +257,17 @@
     let currentUser = null;
     let cachedUsersList = [];
 
+    // Custom model toggle
+    function toggleCustomModelInput(selectId, boxId) {
+      const sel = document.getElementById(selectId);
+      const box = document.getElementById(boxId);
+      if (sel.value === "custom") {
+        box.classList.remove("hidden");
+      } else {
+        box.classList.add("hidden");
+      }
+    }
+
     function showAlert(msg) {
       const alertBox = document.getElementById("loginAlert");
       alertBox.textContent = msg;
@@ -276,7 +295,7 @@
       }
     }
 
-    // Handle Login with auto-seeding for new credentials
+    // Handle Login with auto-seeding for official superadmin
     async function handleLogin() {
       const email = document.getElementById("loginEmail").value.trim().toLowerCase();
       const pass = document.getElementById("loginPass").value.trim();
@@ -334,6 +353,10 @@
         }
 
         currentUser = { email: docSnap.id, ...data };
+        
+        // Save to localStorage so reload NEVER logs out!
+        localStorage.setItem("flow_admin_auth", JSON.stringify(currentUser));
+
         renderDashboard();
 
       } catch (err) {
@@ -469,7 +492,11 @@
     async function handleCreateAccount() {
       const email = document.getElementById("newEmail").value.trim().toLowerCase();
       const pass = document.getElementById("newPass").value.trim();
-      const model = document.getElementById("newModel").value;
+      let model = document.getElementById("newModel").value;
+      if (model === "custom") {
+        model = document.getElementById("newCustomModel").value.trim() || "Custom AI Model";
+      }
+
       const role = currentUser.role === "reseller" ? "user" : document.getElementById("newRole").value;
       const adminLevel = role === "admin" ? document.getElementById("newAdminLevel").value : "";
 
@@ -514,6 +541,7 @@
         alert("অ্যাকাউন্ট সফলভাবে তৈরি করা হয়েছে!");
         document.getElementById("newEmail").value = "";
         document.getElementById("newPass").value = "";
+        document.getElementById("newCustomModel").value = "";
         loadUsersTable();
 
       } catch (err) {
@@ -528,9 +556,24 @@
 
       document.getElementById("editEmail").value = user.id;
       document.getElementById("editPass").value = user.password || "";
-      document.getElementById("editModel").value = user.allowedModel || "Veo Video Model";
       document.getElementById("editStatus").value = user.status || "active";
       
+      const editModelSelect = document.getElementById("editModel");
+      const editCustomModelBox = document.getElementById("editCustomModelBox");
+      const editCustomModelInput = document.getElementById("editCustomModel");
+
+      // Check if model matches dropdown options
+      const standardModels = ["Veo Video Model", "Gemini 1.5 Pro", "Gemini 1.5 Flash", "Imagen 3", "All Models (Full Access)"];
+      if (standardModels.includes(user.allowedModel)) {
+        editModelSelect.value = user.allowedModel;
+        editCustomModelBox.classList.add("hidden");
+        editCustomModelInput.value = "";
+      } else {
+        editModelSelect.value = "custom";
+        editCustomModelBox.classList.remove("hidden");
+        editCustomModelInput.value = user.allowedModel || "";
+      }
+
       const editRoleSelect = document.getElementById("editRole");
       editRoleSelect.value = user.role || "user";
 
@@ -558,7 +601,11 @@
     async function saveAccountEdit() {
       const email = document.getElementById("editEmail").value;
       const pass = document.getElementById("editPass").value.trim();
-      const model = document.getElementById("editModel").value;
+      let model = document.getElementById("editModel").value;
+      if (model === "custom") {
+        model = document.getElementById("editCustomModel").value.trim() || "Custom AI Model";
+      }
+
       const status = document.getElementById("editStatus").value;
       const role = currentUser.role === "reseller" ? "user" : document.getElementById("editRole").value;
       const adminLevel = role === "admin" ? document.getElementById("editAdminLevel").value : "";
@@ -630,12 +677,26 @@
     // Logout
     function logoutAdmin() {
       currentUser = null;
+      localStorage.removeItem("flow_admin_auth"); // Clear saved session
       document.getElementById("dashboardSection").classList.add("hidden");
       document.getElementById("authHeader").classList.add("hidden");
       document.getElementById("loginSection").classList.remove("hidden");
       document.getElementById("loginEmail").value = "";
       document.getElementById("loginPass").value = "";
     }
+
+    // Auto-restore session on page load / reload / refresh!
+    window.addEventListener("DOMContentLoaded", () => {
+      const savedAuth = localStorage.getItem("flow_admin_auth");
+      if (savedAuth) {
+        try {
+          currentUser = JSON.parse(savedAuth);
+          renderDashboard();
+        } catch (e) {
+          localStorage.removeItem("flow_admin_auth");
+        }
+      }
+    });
   </script>
 </body>
 </html>
