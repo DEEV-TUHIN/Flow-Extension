@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flow Studio - এডমিন ও রিসেলার ম্যানেজমেন্ট প্যানেল</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase Compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+
+  <div class="max-w-7xl mx-auto p-4 md:p-8">
+    
+    <!-- Top Navigation Header -->
+    <header class="flex flex-col md:flex-row justify-between items-center bg-slate-800 border border-slate-700 rounded-xl p-5 mb-8 shadow-lg">
+      <div class="flex items-center space-x-3 mb-4 md:mb-0">
+        <div class="w-10 h-10 rounded-lg bg-sky-500 flex items-center justify-center font-bold text-xl text-white shadow-md">
+          F
+        </div>
+        <div>
+          <h1 class="text-xl font-bold text-sky-400">Flow Studio Control Center</h1>
+          <p class="text-xs text-slate-400">ক্লায়েন্ট, রিসেলার, মডেল ও ডিভাইস লকিং ম্যানেজমেন্ট</p>
+        </div>
+      </div>
+
+      <div id="authHeader" class="hidden flex items-center space-x-4">
+        <div class="text-right">
+          <div class="flex items-center justify-end space-x-2">
+            <span id="headerRoleBadge" class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40 uppercase"></span>
+            <span id="headerEmail" class="text-sm font-semibold text-slate-200"></span>
+          </div>
+          <span id="headerQuotaNotice" class="text-xs text-amber-400 font-medium"></span>
+        </div>
+        <button onclick="logoutAdmin()" class="bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition">লগআউট</button>
+      </div>
+    </header>
+
+    <!-- 1. LOGIN SCREEN -->
+    <div id="loginSection" class="max-w-md mx-auto bg-slate-800 border border-slate-700 p-8 rounded-2xl shadow-2xl mt-12">
+      <div class="text-center mb-6">
+        <h2 class="text-2xl font-bold text-white mb-1">প্যানেলে প্রবেশ করুন</h2>
+        <p class="text-xs text-slate-400">সুপার এডমিন অথবা রিসেলার ক্রেডেনশিয়াল ব্যবহার করুন</p>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">ইমেইল</label>
+          <input type="email" id="loginEmail" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500" placeholder="admin@flow.com">
+        </div>
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">পাসওয়ার্ড</label>
+          <input type="password" id="loginPass" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500" placeholder="••••••••">
+        </div>
+        <button id="btnLogin" onclick="handleLogin()" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-semibold py-2.5 rounded-lg text-sm transition shadow-md">লগইন করুন</button>
+      </div>
+
+      <div id="loginAlert" class="hidden mt-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-xs text-red-200 text-center"></div>
+
+      <!-- প্রথমবার এডমিন সেটআপ হেল্পার -->
+      <div class="mt-8 pt-6 border-t border-slate-700/60 text-center">
+        <p class="text-xs text-slate-400 mb-2">ডাটাবেজে কোনো এডমিন না থাকলে প্রথম এডমিন তৈরি করুন:</p>
+        <button onclick="createInitialAdmin()" class="text-xs text-sky-400 hover:text-sky-300 underline font-medium">প্রথমবার এডমিন সেটআপ (admin@flow.com / admin123)</button>
+      </div>
+    </div>
+
+    <!-- 2. MAIN DASHBOARD -->
+    <div id="dashboardSection" class="hidden space-y-8">
+      
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm">
+          <p class="text-xs text-slate-400 uppercase font-semibold">মোট ব্যবহারকারী</p>
+          <h3 id="statTotalUsers" class="text-2xl font-bold text-white mt-1">0</h3>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm">
+          <p class="text-xs text-slate-400 uppercase font-semibold">সক্রিয় ক্লায়েন্ট</p>
+          <h3 id="statActiveUsers" class="text-2xl font-bold text-emerald-400 mt-1">0</h3>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm">
+          <p class="text-xs text-slate-400 uppercase font-semibold">মোট রিসেলার</p>
+          <h3 id="statResellers" class="text-2xl font-bold text-purple-400 mt-1">0</h3>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm">
+          <p class="text-xs text-slate-400 uppercase font-semibold">ডিভাইস লক সক্রিয়</p>
+          <h3 id="statLockedDevices" class="text-2xl font-bold text-sky-400 mt-1">0</h3>
+        </div>
+      </div>
+
+      <!-- Account Creation Box -->
+      <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-md">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-bold text-white" id="createFormTitle">নতুন অ্যাকাউন্ট তৈরি করুন</h2>
+          <span id="quotaBadge" class="hidden text-xs bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full border border-amber-500/30"></span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">ইমেইল (Gmail)</label>
+            <input type="email" id="newEmail" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500" placeholder="client@gmail.com">
+          </div>
+          <div>
+            <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">পাসওয়ার্ড</label>
+            <input type="text" id="newPass" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500" placeholder="পাসওয়ার্ড দিন">
+          </div>
+          <div>
+            <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">অনুমোদিত মডেল</label>
+            <select id="newModel" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
+              <option value="Veo Video Model">Veo Video Model</option>
+              <option value="Gemini 1.5 Pro">Gemini 1.5 Pro</option>
+              <option value="Gemini 1.5 Flash">Gemini 1.5 Flash</option>
+              <option value="Imagen 3">Imagen 3</option>
+              <option value="All Models (Full Access)">All Models (Full Access)</option>
+            </select>
+          </div>
+          <div id="roleSelectorBox">
+            <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">অ্যাকাউন্ট টাইপ</label>
+            <select id="newRole" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
+              <option value="user">সাধারণ গ্রাহক (Single User)</option>
+              <option value="reseller">রিসেলার (১০ জন ক্লায়েন্ট কোটা)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mt-5 flex justify-end">
+          <button id="btnCreateAccount" onclick="handleCreateAccount()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-6 py-2 rounded-lg text-sm transition shadow-md">তৈরি করুন</button>
+        </div>
+      </div>
+
+      <!-- Users & Resellers Management Table -->
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-md overflow-hidden">
+        <div class="p-5 border-b border-slate-700 flex flex-col md:flex-row justify-between items-center gap-3">
+          <div>
+            <h3 class="font-bold text-white text-base">ব্যবহারকারী তালিকা ও ডিভাইস অবস্থা</h3>
+            <p class="text-xs text-slate-400">ডিভাইস পরিবর্তন করতে চাইলে "রিসেট ডিভাইস" চাপুন</p>
+          </div>
+          <button onclick="loadUsersTable()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg transition">তালিকা রিফ্রেশ করুন</button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-900/60 text-slate-400 text-xs uppercase border-b border-slate-700">
+              <tr>
+                <th class="p-4">ইমেইল</th>
+                <th class="p-4">পাসওয়ার্ড</th>
+                <th class="p-4">রোল</th>
+                <th class="p-4">অনুমোদিত মডেল</th>
+                <th class="p-4">ডিভাইস বাইন্ডিং</th>
+                <th class="p-4">তৈরি করেছে</th>
+                <th class="p-4 text-right">অ্যাকশন</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody" class="divide-y divide-slate-700/60">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    // ফায়ারবেস কনফিগারেশন
+    const firebaseConfig = {
+      apiKey: "AIzaSyAawVjy4hFyRC6hsjfpqr6Qqa34fvnkpP0",
+      authDomain: "flow-extension-830b0.firebaseapp.com",
+      projectId: "flow-extension-830b0",
+      storageBucket: "flow-extension-830b0.firebasestorage.app",
+      messagingSenderId: "715000989706",
+      appId: "1:715000989706:web:a5f9dc8e5d499a887c77f3",
+      measurementId: "G-ZZZHW466WD"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let currentUser = null;
+
+    function showAlert(msg) {
+      const alertBox = document.getElementById("loginAlert");
+      alertBox.textContent = msg;
+      alertBox.classList.remove("hidden");
+    }
+
+    // এডমিন বা রিসেলার লগইন
+    async function handleLogin() {
+      const email = document.getElementById("loginEmail").value.trim().toLowerCase();
+      const pass = document.getElementById("loginPass").value.trim();
+      const alertBox = document.getElementById("loginAlert");
+      alertBox.classList.add("hidden");
+
+      if (!email || !pass) {
+        showAlert("ইমেইল এবং পাসওয়ার্ড পূরণ করুন");
+        return;
+      }
+
+      try {
+        const docSnap = await db.collection("users").doc(email).get();
+        if (!docSnap.exists) {
+          showAlert("এই অ্যাকাউন্টটি পাওয়া যায়নি! নিচে প্রথমবার এডমিন সেটআপ বাটনে ক্লিক করে এডমিন অ্যাকাউন্ট তৈরি করে নিন।");
+          return;
+        }
+
+        const data = docSnap.data();
+        if (data.password !== pass) {
+          showAlert("ভুল পাসওয়ার্ড!");
+          return;
+        }
+
+        if (data.role !== "admin" && data.role !== "reseller") {
+          showAlert("শুধুমাত্র এডমিন এবং রিসেলার এই প্যানেলে এক্সেস করতে পারবেন!");
+          return;
+        }
+
+        currentUser = { email: docSnap.id, ...data };
+        renderDashboard();
+
+      } catch (err) {
+        showAlert("লগইন ত্রুটি: " + err.message);
+      }
+    }
+
+    // প্রথমবার সুপার এডমিন ইনিশিয়ালাইজেশন
+    async function createInitialAdmin() {
+      if (!confirm("আপনি কি admin@flow.com (পাসওয়ার্ড: admin123) দিয়ে প্রধান এডমিন তৈরি করতে চান?")) return;
+      try {
+        await db.collection("users").doc("admin@flow.com").set({
+          password: "admin123",
+          role: "admin",
+          allowedModel: "All Models (Full Access)",
+          deviceId: "",
+          status: "active",
+          createdBy: "system",
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        alert("এডমিন সফলভাবে তৈরি হয়েছে! এবার লগইন করুন:\nইমেইল: admin@flow.com\nপাসওয়ার্ড: admin123");
+        document.getElementById("loginEmail").value = "admin@flow.com";
+        document.getElementById("loginPass").value = "admin123";
+      } catch (err) {
+        alert("ত্রুটি: " + err.message);
+      }
+    }
+
+    // ড্যাশবোর্ড ডিসপ্লে করা
+    function renderDashboard() {
+      document.getElementById("loginSection").classList.add("hidden");
+      document.getElementById("dashboardSection").classList.remove("hidden");
+      document.getElementById("authHeader").classList.remove("hidden");
+
+      document.getElementById("headerEmail").textContent = currentUser.email;
+      document.getElementById("headerRoleBadge").textContent = currentUser.role;
+
+      if (currentUser.role === "reseller") {
+        document.getElementById("roleSelectorBox").classList.add("hidden");
+        document.getElementById("createFormTitle").textContent = "রিসেলার ক্লায়েন্ট তৈরি করুন (সর্বোচ্চ ১০ জন)";
+      } else {
+        document.getElementById("roleSelectorBox").classList.remove("hidden");
+        document.getElementById("createFormTitle").textContent = "নতুন অ্যাকাউন্ট তৈরি করুন";
+      }
+
+      loadUsersTable();
+    }
+
+    // ব্যবহারকারীদের ডাটাবেজ থেকে রিড করা
+    async function loadUsersTable() {
+      const tbody = document.getElementById("usersTableBody");
+      tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">ডাটা লোড হচ্ছে...</td></tr>`;
+
+      try {
+        let query = db.collection("users");
+        if (currentUser.role === "reseller") {
+          query = query.where("createdBy", "==", currentUser.email);
+        }
+
+        const snap = await query.get();
+        tbody.innerHTML = "";
+
+        let total = 0, active = 0, resellers = 0, locked = 0;
+        let resellerClientCount = 0;
+
+        if (snap.empty) {
+          tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">কোনো অ্যাকাউন্ট তৈরি করা হয়নি।</td></tr>`;
+          return;
+        }
+
+        snap.forEach(doc => {
+          const u = doc.data();
+          const email = doc.id;
+          total++;
+          if (u.status === "active") active++;
+          if (u.role === "reseller") resellers++;
+          if (u.deviceId && u.deviceId.trim().length > 0) locked++;
+          if (u.createdBy === currentUser.email && u.role === "user") resellerClientCount++;
+
+          const isBound = u.deviceId && u.deviceId.trim().length > 0;
+
+          const row = document.createElement("tr");
+          row.className = "hover:bg-slate-700/30 transition";
+          row.innerHTML = `
+            <td class="p-4 font-medium text-white">${email}</td>
+            <td class="p-4 font-mono text-slate-300">${u.password}</td>
+            <td class="p-4">
+              <span class="px-2.5 py-1 text-xs rounded-full font-semibold ${
+                u.role === 'admin' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
+                u.role === 'reseller' ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30' :
+                'bg-slate-700 text-slate-300'
+              }">${u.role.toUpperCase()}</span>
+            </td>
+            <td class="p-4 text-slate-300 font-medium">${u.allowedModel || 'Standard'}</td>
+            <td class="p-4">
+              <span class="px-2 py-0.5 text-xs rounded font-medium ${
+                isBound ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              }">${isBound ? 'লকড (' + u.deviceId.substring(0, 10) + '...)' : 'অপেক্ষমান (Not Bound)'}</span>
+            </td>
+            <td class="p-4 text-xs text-slate-400">${u.createdBy || 'Direct'}</td>
+            <td class="p-4 text-right space-x-2">
+              ${isBound ? `<button onclick="resetDevice('${email}')" class="text-xs bg-amber-600 hover:bg-amber-500 text-white px-2.5 py-1 rounded transition">রিসেট ডিভাইস</button>` : ''}
+              ${u.role !== 'admin' ? `<button onclick="deleteAccount('${email}')" class="text-xs bg-red-600 hover:bg-red-500 text-white px-2.5 py-1 rounded transition">ডিলিট</button>` : ''}
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        // স্ট্যাটস আপডেট
+        document.getElementById("statTotalUsers").textContent = total;
+        document.getElementById("statActiveUsers").textContent = active;
+        document.getElementById("statResellers").textContent = resellers;
+        document.getElementById("statLockedDevices").textContent = locked;
+
+        if (currentUser.role === "reseller") {
+          const quotaText = `ক্লায়েন্ট কোটা: ${resellerClientCount} / ১০`;
+          document.getElementById("quotaBadge").textContent = quotaText;
+          document.getElementById("quotaBadge").classList.remove("hidden");
+          document.getElementById("headerQuotaNotice").textContent = quotaText;
+        }
+
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-400">ত্রুটি: ${err.message}</td></tr>`;
+      }
+    }
+
+    // নতুন অ্যাকাউন্ট তৈরি
+    async function handleCreateAccount() {
+      const email = document.getElementById("newEmail").value.trim().toLowerCase();
+      const pass = document.getElementById("newPass").value.trim();
+      const model = document.getElementById("newModel").value;
+      const role = currentUser.role === "reseller" ? "user" : document.getElementById("newRole").value;
+
+      if (!email || !pass) {
+        alert("ইমেইল এবং পাসওয়ার্ড পূরণ করুন!");
+        return;
+      }
+
+      // রিসেলার কোটা ভ্যালিডেশন (সর্বোচ্চ ১০ জন)
+      if (currentUser.role === "reseller") {
+        const snap = await db.collection("users").where("createdBy", "==", currentUser.email).get();
+        if (snap.size >= 10) {
+          alert("আপনার রিসেলার কোটা (সর্বোচ্চ ১০ জন) পূর্ণ হয়ে গেছে! আর নতুন ক্লায়েন্ট তৈরি করা যাবে না।");
+          return;
+        }
+      }
+
+      try {
+        const docRef = db.collection("users").doc(email);
+        const existing = await docRef.get();
+        if (existing.exists) {
+          alert("এই ইমেইলে ইতোমধ্যে অ্যাকাউন্ট রয়েছে!");
+          return;
+        }
+
+        await docRef.set({
+          password: pass,
+          role: role,
+          allowedModel: model,
+          deviceId: "",
+          status: "active",
+          createdBy: currentUser.email,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        alert("অ্যাকাউন্ট সফলভাবে তৈরি করা হয়েছে!");
+        document.getElementById("newEmail").value = "";
+        document.getElementById("newPass").value = "";
+        loadUsersTable();
+
+      } catch (err) {
+        alert("তৈরি করতে ব্যর্থ: " + err.message);
+      }
+    }
+
+    // ডিভাইস রিসেট
+    async function resetDevice(email) {
+      if (!confirm(`${email} এর বর্তমান ডিভাইস বাইন্ডিং মুছে ফেলতে চান? এটি করলে ইউজার নতুন কোনো ডিভাইসে লগইন করতে পারবে।`)) return;
+      try {
+        await db.collection("users").doc(email).update({ deviceId: "" });
+        alert("ডিভাইস রিসেট সম্পন্ন হয়েছে!");
+        loadUsersTable();
+      } catch (err) {
+        alert("ডিভাইস রিসেট ব্যর্থ: " + err.message);
+      }
+    }
+
+    // অ্যাকাউন্ট ডিলিট
+    async function deleteAccount(email) {
+      if (!confirm(`আপনি কি নিশ্চিতভাবে ${email} অ্যাকাউন্টটি ডিলিট করতে চান?`)) return;
+      try {
+        await db.collection("users").doc(email).delete();
+        alert("অ্যাকাউন্ট মুছে ফেলা হয়েছে!");
+        loadUsersTable();
+      } catch (err) {
+        alert("মুছে ফেলতে ব্যর্থ: " + err.message);
+      }
+    }
+
+    // লগআউট
+    function logoutAdmin() {
+      currentUser = null;
+      document.getElementById("dashboardSection").classList.add("hidden");
+      document.getElementById("authHeader").classList.add("hidden");
+      document.getElementById("loginSection").classList.remove("hidden");
+      document.getElementById("loginEmail").value = "";
+      document.getElementById("loginPass").value = "";
+    }
+  </script>
+</body>
+</html>
